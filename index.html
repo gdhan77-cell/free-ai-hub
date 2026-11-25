@@ -641,14 +641,20 @@ var CLAUDE_IN_PER_M = 3, CLAUDE_OUT_PER_M = 15;
 var MAX_HISTORY = 8, MAX_CTX_CHARS = 24000, MAX_FILE_CHARS = 20000;
 
 var PROVIDERS = {
-  gemini: { name:'제미나이', short:'G', models:['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'],
-            def:'gemini-2.5-flash', hint:'AIza 로 시작' },
-  groq:   { name:'Groq', short:'Q', models:['llama-3.3-70b-versatile','llama-3.1-8b-instant','openai/gpt-oss-120b','qwen/qwen3-32b'],
-            def:'llama-3.3-70b-versatile', hint:'gsk_ 로 시작' },
-  openrouter: { name:'OpenRouter', short:'R', models:['meta-llama/llama-3.3-70b-instruct:free','google/gemma-3-27b-it:free','deepseek/deepseek-r1-0528:free','qwen/qwen3-235b-a22b:free'],
-            def:'meta-llama/llama-3.3-70b-instruct:free', hint:'sk-or-v1- 로 시작' },
+  gemini: { name:'제미나이', short:'G', models:['gemini-3.5-flash','gemini-3-flash-preview','gemini-3.8-flash','gemma-4-26b-a4b-it'],
+            def:'gemini-3.5-flash', hint:'AIza 로 시작' },
+  groq:   { name:'Groq', short:'Q', models:['openai/gpt-oss-120b','qwen/qwen3.8-27b','openai/gpt-oss-20b'],
+            def:'openai/gpt-oss-120b', hint:'gsk_ 로 시작' },
+  openrouter: { name:'OpenRouter', short:'R', models:['openrouter/free','nvidia/nemotron-3-ultra-550b-a55b:free','nvidia/nemotron-3.5-lightning:free','baidu/ernie-5.5-flash-preview:free','google/gemma-4-26b-a4b-it:free'],
+            def:'openrouter/free', hint:'sk-or-v1- 로 시작' },
   anthropic: { name:'클로드', short:'C', models:['claude-sonnet-5-5','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5'],
             def:'claude-sonnet-5-5', hint:'sk-ant- 로 시작' }
+};
+/* 제공사가 종료·제거한 옛 모델(2026-11-25 기준 404) — 저장된 키 풀에 남아 있으면 새 기본 모델로 자동 치환 */
+var RETIRED_MODELS = {
+  gemini: ['gemini-2.5-flash','gemini-2.0-flash','gemini-2.5-flash-lite'],
+  groq: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','qwen/qwen3-32b'],
+  openrouter: ['meta-llama/llama-3.3-70b-instruct:free','google/gemma-3-27b-it:free','deepseek/deepseek-r1-0528:free','qwen/qwen3-235b-a22b:free']
 };
 var IS_FREE = { gemini:true, groq:true, openrouter:true, anthropic:false };
 
@@ -658,6 +664,7 @@ var chat = [];          // {role,text,files,trace,demo,pending,error,ts}
 var attachments = [];   // {name, chars, text}
 var busy = false;
 var editingId = null;
+var modelMigrated = false;
 var els = {};
 
 /* ---------------- storage ---------------- */
@@ -679,12 +686,18 @@ function normalizePool(raw){
     if (!p || typeof p !== 'object') return;
     var type = PROVIDERS[p.type] ? p.type : null;
     if (!type) return;
+    var savedModel = (typeof p.model === 'string' && p.model.trim()) ? p.model.trim() : '';
+    /* 옛 404 모델명이면 새 기본 모델로 바꾸고, 바꿈을 기록해 저장까지 하게 한다 */
+    if (savedModel && (RETIRED_MODELS[type] || []).indexOf(savedModel) >= 0) {
+      savedModel = PROVIDERS[type].def;
+      modelMigrated = true;
+    }
     out.providers.push({
       id: (typeof p.id === 'string' && p.id) ? p.id : uid(),
       type: type,
       label: (typeof p.label === 'string' && p.label.trim()) ? p.label.trim().slice(0,40) : PROVIDERS[type].name + ' 무료 #' + (i+1),
       apiKey: typeof p.apiKey === 'string' ? p.apiKey.trim() : '',
-      model: (typeof p.model === 'string' && p.model.trim()) ? p.model.trim() : PROVIDERS[type].def,
+      model: savedModel || PROVIDERS[type].def,
       enabled: p.enabled !== false,
       priority: (typeof p.priority === 'number' && isFinite(p.priority)) ? p.priority : (i+1),
       lastStatus: (p.lastStatus && typeof p.lastStatus === 'object') ? { state:p.lastStatus.state||'unknown', at:p.lastStatus.at||null, msg:p.lastStatus.msg||'' } : { state:'unknown', at:null, msg:'' }
@@ -701,10 +714,15 @@ function normalizePool(raw){
 }
 
 function loadAll(){
+  var migrated = false;
   try {
     var raw = localStorage.getItem(LS_POOL);
+    modelMigrated = false;
     pool = normalizePool(raw ? JSON.parse(raw) : null);
+    migrated = modelMigrated;
   } catch(e){ pool = blankPool(); }
+  /* 옛 404 모델명을 새 모델명으로 바꿨다면 곧바로 저장 — 새로고침만으로 다시 쓸 수 있게 */
+  if (migrated) { savePool(); toast('옛 모델명을 최신 모델로 자동 변경했습니다', 'ok'); }
   try {
     var u = JSON.parse(localStorage.getItem(LS_UI) || '{}');
     if (u && (u.theme === 'day' || u.theme === 'night')) ui.theme = u.theme;
@@ -1110,12 +1128,12 @@ function demoText(content){
 
 async function runDemo(aiMsg, content){
   aiMsg.demo = true;
-  aiMsg.trace.push({ label:'제미나이 무료 #1', type:'gemini', model:'gemini-2.5-flash', state:'fail', reason:'한도 초과(429)' });
+  aiMsg.trace.push({ label:'제미나이 무료 #1', type:'gemini', model:'gemini-3.5-flash', state:'fail', reason:'한도 초과(429)' });
   aiMsg.pending = true;
   addLog({ from:'제미나이 무료 #1', fromType:'gemini', to:'Groq 무료 #1', reason:'한도 초과(429)', status:429, demo:true });
   renderChat(); scrollChat();
   await sleep(900);
-  aiMsg.trace.push({ label:'Groq 무료 #1', type:'groq', model:'llama-3.3-70b-versatile', state:'ok' });
+  aiMsg.trace.push({ label:'Groq 무료 #1', type:'groq', model:'openai/gpt-oss-120b', state:'ok' });
   renderChat(); scrollChat();
   await sleep(700);
   aiMsg.text = demoText(content);

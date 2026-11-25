@@ -17,9 +17,9 @@ PC 설치 없이 폰·PC 브라우저에서 바로 열어 씁니다.
 
 | 업체 | 호출 주소 | 기본 모델 |
 | --- | --- | --- |
-| Google 제미나이 | `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` | `gemini-2.5-flash` (보조 `gemini-2.0-flash`) |
-| Groq | `api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` (보조 `llama-3.1-8b-instant`) |
-| OpenRouter | `openrouter.ai/api/v1/chat/completions` | `meta-llama/llama-3.3-70b-instruct:free` 등 `:free` 모델 |
+| Google 제미나이 | `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` | `gemini-3.5-flash` (보조 `gemini-3-flash-preview`, `gemini-3.8-flash`, `gemma-4-26b-a4b-it`) |
+| Groq | `api.groq.com/openai/v1/chat/completions` | `openai/gpt-oss-120b` (보조 `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`) |
+| OpenRouter | `openrouter.ai/api/v1/chat/completions` | `openrouter/free` (공식 무료 자동 라우터, 보조 `:free` 모델들) |
 | Anthropic 클로드 (최후 보루) | `api.anthropic.com/v1/messages` | `claude-sonnet-5-5` |
 
 - 클로드는 **"무료가 모두 막혔을 때만 클로드 사용"** 토글을 켰을 때만, 무료 키가 전부 실패한 뒤에 호출합니다.
@@ -44,13 +44,18 @@ PC 설치 없이 폰·PC 브라우저에서 바로 열어 씁니다.
     "claudeModel": "claude-sonnet-5-5",
     "providers": [
       { "id": "…", "type": "gemini", "label": "제미나이 무료 #1", "apiKey": "…",
-        "model": "gemini-2.5-flash", "enabled": true, "priority": 1 }
+        "model": "gemini-3.5-flash", "enabled": true, "priority": 1 }
     ],
     "stats": { "freeCalls": 0, "claudeSaved": 0, "failovers": 0, "logs": [] }
   }
   ```
 - 같은 `gdhan77-cell.github.io` 오리진의 다른 웹앱(ai-debate-room · bonae-goodnote · han-ai-office)도 이 키 이름을 쓰도록 맞추면 키를 다시 넣지 않고 함께 쓸 수 있습니다.
 - 키는 서버로 보내지 않고, 호출할 때 해당 업체 주소로만 전송됩니다. JSON 내보내기로 폰↔PC 이동이 됩니다.
+
+## 옛 모델명 자동 변경
+
+- 2026-11-25 이전에 저장해 둔 키의 모델명(`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-2.5-flash-lite`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen/qwen3-32b`, `meta-llama/llama-3.3-70b-instruct:free`, `google/gemma-3-27b-it:free`, `deepseek/deepseek-r1-0528:free`, `qwen/qwen3-235b-a22b:free`)는 모두 제공사에서 종료되어 404가 납니다.
+- 이 허브와 세 앱은 저장된 키 풀을 읽을 때 그런 옛 모델명을 새 기본 모델(`gemini-3.5-flash` · `openai/gpt-oss-120b` · `openrouter/free`)로 자동 치환하고 곧바로 다시 저장합니다. 키를 지웠다 넣을 필요 없이 새로고침만 하면 됩니다.
 
 ## 검증 (2026-11-25)
 
