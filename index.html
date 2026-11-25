@@ -1295,7 +1295,11 @@ function renderKeys(){
   if (!els.keyList) return;
   var n = pool.providers.length;
   var filled = pool.providers.filter(function(p){ return p.apiKey; }).length;
-  if (els.keyCount) els.keyCount.textContent = filled + '개 입력 / ' + n + '칸';
+  /* Gemini·Groq·OpenRouter 기본 3칸 — 키가 없는 종류는 바로 입력할 수 있는 빈 칸으로 그린다. */
+  var has = {};
+  pool.providers.forEach(function(p){ has[p.type] = true; });
+  var missing = ['gemini', 'groq', 'openrouter'].filter(function(t){ return !has[t]; });
+  if (els.keyCount) els.keyCount.textContent = filled + '개 입력 / ' + (n + missing.length) + '칸';
   var h = '';
   pool.providers.forEach(function(p, i){
     h += '<div class="key-item" data-id="' + p.id + '" data-enabled="' + (p.enabled ? 'true' : 'false') + '">' +
@@ -1320,10 +1324,7 @@ function renderKeys(){
       '</div>' +
     '</div>';
   });
-  /* Gemini·Groq·OpenRouter 기본 3칸 — 키가 없는 종류는 바로 입력할 수 있는 빈 칸으로 그린다. */
-  var has = {};
-  pool.providers.forEach(function(p){ has[p.type] = true; });
-  ['gemini', 'groq', 'openrouter'].forEach(function(t){
+  missing.forEach(function(t){
     if (has[t]) return;
     var meta = PROVIDERS[t];
     h += '<div class="key-item" data-quick="' + t + '">' +
